@@ -1,5 +1,6 @@
 """Endpoint behavior and configuration without a running Redis server."""
 
+import socket
 from unittest.mock import Mock
 
 import pytest
@@ -98,3 +99,15 @@ def test_empty_redis_host_is_rejected(monkeypatch, redis_client):
     monkeypatch.setenv("REDIS_HOST", " ")
     with pytest.raises(ValueError, match="REDIS_HOST"):
         create_app(redis_client)
+
+
+@pytest.mark.parametrize("endpoint", ["/health", "/visits"])
+def test_real_redis_client_handles_connection_refused(monkeypatch, endpoint):
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+    monkeypatch.setenv("REDIS_HOST", "127.0.0.1")
+    monkeypatch.setenv("REDIS_PORT", str(port))
+    response = create_app().test_client().get(endpoint)
+    assert response.status_code == 503
+    assert response.json == {"status": "error"}
