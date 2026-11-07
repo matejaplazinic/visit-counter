@@ -7,7 +7,9 @@ import sys
 
 from flask import Flask, jsonify, request
 from redis import Redis
+from redis.backoff import NoBackoff
 from redis.exceptions import RedisError
+from redis.retry import Retry
 
 
 def read_port(name: str) -> int:
@@ -36,6 +38,8 @@ def create_app(redis_client=None) -> Flask:
             socket_connect_timeout=1,
             socket_timeout=1,
             decode_responses=True,
+            # Fail fast for health checks; do not replay a possibly applied INCR.
+            retry=Retry(NoBackoff(), 0),
         )
     )
 
