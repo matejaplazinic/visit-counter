@@ -1,0 +1,46 @@
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:${APP_PORT:?Set APP_PORT in .env}:${APP_PORT:?Set APP_PORT in .env}"
+    environment:
+      APP_PORT: ${APP_PORT:?Set APP_PORT in .env}
+      REDIS_HOST: ${REDIS_HOST:?Set REDIS_HOST in .env}
+      REDIS_PORT: ${REDIS_PORT:?Set REDIS_PORT in .env}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ['APP_PORT'] + '/health', timeout=3)"
+      interval: 5s
+      timeout: 4s
+      retries: 5
+      start_period: 5s
+
+  redis:
+    image: redis:8.10.3-alpine
+    command:
+      - redis-server
+      - --port
+      - ${REDIS_PORT:?Set REDIS_PORT in .env}
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "${REDIS_PORT:?Set REDIS_PORT in .env}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  redis-data:
